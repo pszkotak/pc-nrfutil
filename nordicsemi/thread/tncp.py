@@ -117,7 +117,7 @@ class NCPTransport:
 
     def _wpan_receive(self, prop, value, tid):
         consumed = False
-        if prop == SPINEL.PROP_STREAM_NET:
+        if prop == SPINEL.PROP_STREAM_NET or prop == SPINEL.PROP_STREAM_NET_INSECURE:
             consumed = True
             try:
                 pkt = self._udp6_parser.parse(io.BytesIO(value),
@@ -129,8 +129,12 @@ class NCPTransport:
                 dst = endpoint(pkt.ipv6_header.destination_address,
                                pkt.upper_layer_protocol.header.dst_port)
 
-                for receiver in self._receivers:
-                    receiver.receive(payload, src, dst)
+                logger.debug(f"_wpan_receive src: {src}")
+                logger.debug(f"_wpan_receive pkt: {pkt}")
+
+                if src.port == 5683:
+                    for receiver in self._receivers:
+                        receiver.receive(payload, src, dst)
 
             except RuntimeError:
                 pass
@@ -219,6 +223,7 @@ class NCPTransport:
         self._wpan.queue_register(SPINEL.HEADER_DEFAULT)
         self._wpan.queue_register(SPINEL.HEADER_ASYNC)
         self._wpan.callback_register(SPINEL.PROP_STREAM_NET, self._wpan_receive)
+        self._wpan.callback_register(SPINEL.PROP_STREAM_NET_INSECURE, self._wpan_receive)
 
         if (self._config[NCPTransport.CFG_KEY_RESET]) and not self._wpan.cmd_reset():
             raise Exception('Failed to reset NCP. Please flash connectivity firmware.')
